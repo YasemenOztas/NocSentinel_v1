@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  # Güvenli Mosquitto MQTT Broker (mTLS destekli)
+  mosquitto-secure:
+    image: eclipse-mosquitto:latest
+    container_name: mosquitto-secure
+    ports:
+      - "1883:1883" # Şifresiz Port
+      - "8883:8883" # SSL/TLS Şifreli Port
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ../certs:/mosquitto/config/certs:ro
+    restart: always
+
+  # Güvenli Redis Sunucusu
+  redis-secure:
+    image: redis:latest
+    container_name: redis-secure
+    ports:
+      - "6379:6379"
+    restart: always

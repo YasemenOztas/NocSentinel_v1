@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:alpine
+    container_name: noc-sentinel-redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    command: redis-server --requirepass root
+
+  mosquitto:
+    image: eclipse-mosquitto:latest
+    container_name: noc-sentinel-mosquitto
+    ports:
+      - "1883:1883"
+      - "8883:8883"
+    volumes:
+      - C:/ProgramData/NocSentinelServer/config/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - C:/ProgramData/NocSentinelServer/certs:/mosquitto/config/certs
+    restart: unless-stopped

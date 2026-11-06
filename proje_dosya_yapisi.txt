@@ -1,0 +1,156 @@
+================================================================================
+                    NOCSENTINEL v1 - PROJE DOSYA SİSTEMİ
+================================================================================
+Açıklama: Bu dosya NocSentinel projesinin dizin ve dosya hiyerarşisini,
+modüllerin görevlerini ve yapısal düzenini içermektedir.
+(Not: .venv, __pycache__, .git ve derleme ara dosyaları listeye dahil edilmemiştir.)
+
+--------------------------------------------------------------------------------
+1. GENEL DİZİN AĞACI (DIRECTORY TREE)
+--------------------------------------------------------------------------------
+NocSentinel_v1/
+├── .env                                # Proje ortam değişkenleri ve gizli anahtarlar
+├── .env.example                        # Örnek ortam değişkenleri şablonu
+├── KURULUM_VE_CALISTIRMA.txt           # Sunucu ve İstemci kurulum/çalıştırma rehberi
+├── activate.bat                        # Python sanal ortamını (.venv) aktive etme betiği
+├── docker-compose.yml                  # Redis ve Mosquitto MQTT broker altyapı servisleri
+├── requirements.txt                    # Temel Python kütüphane bağımlılıkları
+├── requirements_test.txt               # Test ortamı için ek kütüphane bağımlılıkları
+├── setup_test_env.bat                  # Test ortamını otomatik kurma betiği
+│
+├── certs/                              # mTLS ve SSL/TLS Güvenlik Sertifikaları
+│   ├── ca.crl                          # İptal edilen sertifika listesi (CRL)
+│   ├── ca.crt                          # Root Sertifika Otoritesi (CA) sertifikası
+│   ├── ca.key                          # CA gizli anahtarı
+│   ├── client.crt                      # İstemci mTLS sertifikası
+│   ├── client.key                      # İstemci gizli anahtarı
+│   ├── generate_certs.py               # Sertifikaları ve CA yapısını oluşturan betik
+│   ├── server.crt                      # Sunucu SSL sertifikası
+│   └── server.key                      # Sunucu gizli anahtarı
+│
+├── client/                             # NocSentinel İstemci (Agent / Client) Kaynak Kodları
+│   ├── build_client.py                 # PyInstaller ile istemciyi EXE yapma derleme betiği
+│   ├── certificate_manager.py          # İstemci sertifika yönetimi ve otomatik yenileme
+│   ├── database.py                     # İstemci tarafı yerel SQLite veritabanı yönetimi
+│   ├── dist/                           # Derlenmiş istemci binary çıktısı
+│   │   └── service_manager.exe
+│   ├── monitors.py                     # Sistem, kaynak, ağ ve donanım izleme mekanizmaları
+│   ├── scanned_hashes_cache.json       # Taranan dosya özetleri önbelleği
+│   ├── sender_agent.py                 # Sunucuya şifreli telemetri/veri gönderen ajan
+│   ├── service_manager.py              # Windows Servis yöneticisi ve ana istemci yaşam döngüsü
+│   ├── service_manager.spec            # PyInstaller konfigürasyon dosyası
+│   └── utils/                          # İstemci yardımcı fonksiyonları
+│       ├── path_helper.py              # Dizin ve çalışma yolu tespit yardımcıları
+│       ├── security.py                 # İstemci güvenlik ve imza kontrolleri
+│       └── token_bucket.py             # Veri gönderme hızını sınırlayan Token Bucket algoritması
+│
+├── common/                             # Sunucu ve İstemcinin Ortak Kullandığı Çekirdek Modüller
+│   ├── __init__.py
+│   ├── app_config.py                   # .env ve merkezi konfigürasyon yükleyicisi
+│   ├── crypto_helper.py                # AES/HMAC şifreleme ve güvenlik yardımcıları
+│   ├── registry.py                     # Windows Registry okuma/yazma işlemleri
+│   └── thread_supervisor.py            # Arka plan iş parçacığı (thread) denetleyicisi
+│
+├── config/                             # Servis Konfigürasyonları
+│   ├── docker-compose.yml              # Konfigürasyon klasörüne özel docker tanımı
+│   └── mosquitto.conf                  # Mosquitto MQTT Broker yapılandırma dosyası
+│
+├── server/                             # NocSentinel Sunucu (Backend & Engine) Kaynak Kodları
+│   ├── NocSentinelServer.spec          # Sunucu PyInstaller derleme konfigürasyonu
+│   ├── admin_api.py                    # Web Arayüzü ve yönetim için REST API (FastAPI)
+│   ├── build_server.py                 # Sunucuyu EXE olarak derleyen PyInstaller betiği
+│   ├── cert_enrollment.py              # Yeni istemcilere sertifika dağıtım/onay servisi
+│   ├── database.py                     # PostgreSQL / SQLite ana veritabanı katmanı
+│   ├── dist/                           # Derlenmiş sunucu binary çıktısı
+│   │   └── NocSentinelServer/
+│   │       └── NocSentinelServer.exe
+│   ├── noc_sentinel.db                 # SQLite yerel sunucu veri tabanı
+│   ├── path_helper.py                  # Sunucu çalışma dizini yardımcıları
+│   ├── receiver_server.py              # İstemcilerden gelen MQTT verilerini karşılayan sunucu
+│   ├── risk_engine.py                  # Anomali tespiti ve risk puanlama motoru
+│   ├── server_fallback.db              # Redis/DB kesintisinde kullanılan yedek veri tabanı
+│   ├── token_bucket.py                 # İstek sınırlayıcı (Rate limiter)
+│   ├── windows_service.py              # Sunucunun Windows Servisi olarak çalışmasını sağlayan katman
+│   ├── optimization/                   # Bant Genişliği ve Trafik Optimizasyon Algoritmaları
+│   │   ├── __init__.py
+│   │   ├── abc.py                      # Artificial Bee Colony (Yapay Arı Kolonisi) Algoritması
+│   │   ├── base.py                     # Optimizasyon temel sınıfı (Base Optimizer)
+│   │   ├── genetic.py                  # Genetik Algoritma (GA)
+│   │   ├── max_min_fair.py             # Max-Min Fair Paylaşım Algoritması
+│   │   ├── proportional_fair.py        # Oransal Adil (Proportional Fair) Algoritması
+│   │   ├── pso.py                      # Particle Swarm Optimization (Parçacık Sürü Optimizasyonu)
+│   │   └── simulated_annealing.py      # Tavlama Benzetimi (Simulated Annealing)
+│   ├── ui/                             # Sunucu Web Tabanlı Yönetim Paneli
+│   │   ├── css/
+│   │   │   └── style.css               # Dashboard stilleri
+│   │   ├── index.html                  # Ana yönetim paneli HTML arayüzü
+│   │   └── js/
+│   │       └── app.js                  # Frontend dinamik panel kontrol kodları
+│   └── workers/                        # Asenkron Arka Plan Görev Yöneticileri (Workers)
+│       ├── __init__.py
+│       ├── _base.py                    # Temel worker sınıfı
+│       ├── aging.py                    # Eski veri ve alarmların yaşlandırma/temizleme görevi
+│       ├── db_recovery.py              # Veritabanı kesintisi sonrası veri kurtarma ve senkronizasyon
+│       ├── optimization.py             # Periyodik optimizasyon hesaplayıcı işçi
+│       ├── queue_worker.py             # Redis / In-Memory mesaj kuyruk işleyicisi
+│       ├── redis_reconnect.py          # Redis bağlantı kopması durumunda yeniden bağlanma işçisi
+│       ├── retention.py                # Veri saklama süresi denetleyicisi
+│       ├── telemetry.py                # Sunucu sistem telemetri toplayıcısı
+│       └── traffic.py                  # Ağ trafik analizi ve bant genişliği işleyicisi
+│
+├── NocSentinel_Istemci/                # Dağıtıma Hazır İstemci Paketi (Standalone Dağıtım)
+│   ├── .env                            # İstemci ortam ayarları
+│   ├── KURULUM_VE_CALISTIRMA.txt       # İstemci kurulum kılavuzu
+│   ├── Network/                        # Test ve Ağ Yapılandırma Betikleri
+│   │   ├── restore_network_dhcp.bat
+│   │   ├── restore_network_dhcp.ps1
+│   │   ├── set_test_network.bat
+│   │   └── set_test_network.ps1
+│   ├── Scripts/                        # İstemci Kurulum ve Kaldırma Betikleri
+│   │   ├── deploy_client.bat           # İstemciyi Windows servisi olarak kurma
+│   │   ├── reinstall_clean_client.bat  # Temiz yeniden kurulum
+│   │   └── uninstall_and_cleanup_client.bat # İstemciyi ve servisleri kaldırma
+│   ├── Tests/                          # İstemci Yük ve Trafik Üretme Testleri
+│   │   ├── GG_Generator_v5.ps1         # Sentetik trafik üretici betik
+│   │   └── run_generator.bat           # Trafik üretici başlatıcı
+│   ├── scanned_hashes_cache.json       # Taranan hash önbelleği
+│   └── service_manager.exe             # İstemcinin derlenmiş bağımsız EXE dosyası
+│
+├── NocSentinel_Sunucu_EXE/             # Dağıtıma Hazır Sunucu Paketi (Standalone Dağıtım)
+│   ├── .env                            # Sunucu ortam ayarları
+│   ├── KURULUM_VE_CALISTIRMA.txt       # Sunucu kurulum kılavuzu
+│   ├── docker-compose.yml              # Sunucu makinesi için Docker servisleri
+│   ├── NocSentinelServer.exe           # Sunucunun derlenmiş bağımsız EXE dosyası
+│   ├── _internal/                      # [EXE Çalışma Zamanı Kütüphaneleri & UI Bağımlılıkları]
+│   ├── Network/                        # Ağ Yapılandırma Betikleri
+│   │   ├── restore_network_dhcp.bat
+│   │   ├── restore_network_dhcp.ps1
+│   │   ├── set_test_network.bat
+│   │   └── set_test_network.ps1
+│   ├── Scripts/                        # Sunucu Kurulum ve Dağıtım Betikleri
+│   │   ├── deploy_server.bat           # Sunucuyu Windows servisi olarak kurma
+│   │   └── reinstall_clean_server.bat  # Temiz yeniden kurulum
+│   └── Tests/                          # Sunucu Dayanıklılık ve Matris Testleri
+│       ├── run_24h_matrix_test_v4.bat  # 24 saatlik matris stres testi başlatıcı
+│       ├── run_24h_matrix_test_v4.py   # Test senaryo motoru
+│       └── run_mini_matrix_test.bat    # Hızlı matris testi
+│
+└── tests/                              # Proje Test ve Doğrulama Paketleri
+    ├── add_local_whitelist.py          # Güvenli IP/Cihaz beyaz listesi ekleme testi
+    ├── add_test_clients.py             # Sahte istemciler oluşturarak yük testi yapma
+    ├── cok_kullanici_test.py           # Eşzamanlı çoklu kullanıcı simülasyonu
+    ├── recover_firewall.py             # Güvenlik duvarı kurallarını sıfırlama aracı
+    ├── test_admin_api_auth.py          # Yönetici API yetkilendirme testleri
+    ├── test_aging.py                   # Veri yaşlandırma mekanizması testi
+    ├── test_aging_2.py                 # Alternatif yaşlandırma senaryo testi
+    ├── test_audit_devices.py           # Cihaz denetim ve envanter testi
+    ├── test_correlation_db.py          # Olay korelasyon ve veritabanı testi
+    ├── test_enrollment.py              # Sertifika kayıt (enrollment) testi
+    ├── test_hce_ar_framework.py        # Framework doğrulama testleri
+    ├── test_optimization_performance.py# Optimizasyon algoritmalarının kıyaslama testi
+    ├── test_redis_fallback.py          # Redis kesintisi yedekleme testi
+    └── test_spoofing.py                # IP/MAC spoofing güvenlik tespit testi
+
+================================================================================
+Son Güncelleme: 2026-10-27
+================================================================================

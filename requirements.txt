@@ -1,0 +1,44 @@
+# ============================================================
+# NocSentinel Projesi -- Gerekli Python Paketleri
+# Kurulum: pip install -r requirements.txt
+# ============================================================
+
+# MQTT Haberlesmesi
+paho-mqtt>=2.0.0
+
+# Sifreleme (AES-GCM)
+cryptography>=42.0.0
+
+# Veri Serilestirme
+msgpack>=1.0.0
+
+# Veritabani ORM
+sqlalchemy>=2.0.0
+
+# PostgreSQL Surucusu (Otomatik SQLite Fallback destekli)
+psycopg2-binary>=2.9.0
+
+# Redis Istemcisi (Otomatik Bellek Ici Fallback destekli)
+redis>=5.0.0
+
+# Sistem Izleme (CPU, RAM, Donanim)
+psutil>=5.9.0
+
+# Windows Api Destegi (Event Log & Ajan Servisleri)
+pywin32>=306; sys_platform == "win32"
+
+# HTTP Istekleri (AI API baglantisi icin)
+requests>=2.31.0
+
+# Yonetici REST API (FastAPI)
+fastapi>=0.100.0
+uvicorn>=0.22.0
+
+# Ortam Degiskeni Yonetimi (.env dosyasi destegi)
+python-dotenv>=1.0.0
+
+# Derleme Araci (PyInstaller EXE uretimi icin)
+pyinstaller>=6.0.0
+
+# Konsol Tablo Raporlama (Benchmark matris testleri icin)
+tabulate>=0.9.0

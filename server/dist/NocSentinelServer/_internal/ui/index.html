@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NocSentinel | Admin Dashboard</title>
+    <meta name="description" content="NocSentinel NOC Security Gateway Admin Panel">
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+    /* ── Cooldown Status Banner ── */
+    .cooldown-banner {
+        border-radius: 10px;
+        padding: 14px 18px;
+        margin-bottom: 18px;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        border: 1.5px solid var(--border-glass);
+        background: #f8fafc;
+        transition: background 0.3s;
+    }
+    .cooldown-banner.active-restrict { background: rgba(245,158,11,0.08); border-color: var(--warning); }
+    .cooldown-banner.active-isolate  { background: rgba(239,68,68,0.08);  border-color: var(--danger);  }
+    .cooldown-banner.active-lockdown { background: rgba(239,68,68,0.12);  border-color: #7c3aed;        }
+    .cooldown-banner.active-recover  { background: rgba(16,185,129,0.08); border-color: var(--success); }
+
+    .cooldown-icon { font-size: 1.6rem; flex-shrink: 0; }
+    .cooldown-icon.restrict-clr { color: var(--warning); }
+    .cooldown-icon.isolate-clr  { color: var(--danger);  }
+    .cooldown-icon.lockdown-clr { color: #7c3aed;        }
+    .cooldown-icon.recover-clr  { color: var(--success); }
+    .cooldown-icon.idle-clr     { color: var(--text-light); }
+
+    .cooldown-info { flex: 1; }
+    .cooldown-action-label {
+        font-weight: 700;
+        font-size: 0.9rem;
+        margin-bottom: 2px;
+    }
+    .cooldown-timer {
+        font-family: var(--font-mono);
+        font-size: 1.4rem;
+        font-weight: 700;
+        letter-spacing: 1px;
+        line-height: 1.2;
+    }
+    .cooldown-timer.idle { font-size: 0.88rem; color: var(--text-muted); font-family: var(--font-sans); font-weight: 400; }
+    .cooldown-sub { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
+    .cooldown-progress-wrap {
+        margin-top: 8px;
+        background: rgba(0,0,0,0.06);
+        border-radius: 4px;
+        height: 5px;
+        overflow: hidden;
+    }
+    .cooldown-progress-bar {
+        height: 100%;
+        border-radius: 4px;
+        transition: width 1s linear;
+        background: var(--warning);
+    }
+    .cooldown-progress-bar.isolate-bar  { background: var(--danger); }
+    .cooldown-progress-bar.lockdown-bar { background: #7c3aed; }
+    .cooldown-progress-bar.recover-bar  { background: var(--success); }
+    </style>
+</head>
+<body>
+
+    <!-- ═══════════════════ LOGIN MODAL ═══════════════════ -->
+    <div id="login-modal" class="modal-overlay active">
+        <div class="login-card glass-panel">
+            <div class="brand-header">
+                <i class="fa-solid fa-shield-halved brand-icon"></i>
+                <h2>NocSentinel</h2>
+                <p>NOC Security Gateway</p>
+            </div>
+            <form id="login-form">
+                <div class="input-group">
+                    <i class="fa-solid fa-user"></i>
+                    <input type="text" id="username" placeholder="Username" required autocomplete="username">
+                </div>
+                <div class="input-group">
+                    <i class="fa-solid fa-lock"></i>
+                    <input type="password" id="password" placeholder="Password" required autocomplete="current-password">
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">
+                    <i class="fa-solid fa-right-to-bracket"></i> Sign In
+                </button>
+            </form>
+            <div id="login-error" class="error-msg"></div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════ APP LAYOUT ════════════════════ -->
+    <div id="app-layout" class="app-layout hidden">
+
+        <!-- Mobile overlay -->
+        <div id="sidebar-overlay" class="sidebar-overlay" onclick="ui.closeSidebar()"></div>
+
+        <!-- ── Sidebar ─────────────────────────────────── -->
+        <nav class="sidebar" id="sidebar">
+            <div class="sidebar-brand">
+                <i class="fa-solid fa-shield-halved brand-icon" style="color:var(--primary)"></i>
+                <span class="brand-name">NocSentinel</span>
+            </div>
+
+            <ul class="nav-links">
+                <li><a href="#" class="nav-item active" data-target="dashboard">
+                    <i class="fa-solid fa-chart-pie"></i> <span>Dashboard</span></a></li>
+                <li><a href="#" class="nav-item" data-target="devices">
+                    <i class="fa-solid fa-server"></i> <span>Devices</span></a></li>
+                <li><a href="#" class="nav-item" data-target="policies">
+                    <i class="fa-solid fa-sliders"></i> <span>Policies</span></a></li>
+                <li><a href="#" class="nav-item" data-target="lists">
+                    <i class="fa-solid fa-list-check"></i> <span>Lists (BL/WL)</span></a></li>
+                <li><a href="#" class="nav-item" data-target="logs">
+                    <i class="fa-solid fa-clock-rotate-left"></i> <span>Logs</span></a></li>
+                <li><a href="#" class="nav-item" data-target="config">
+                    <i class="fa-solid fa-gear"></i> <span>Server Config</span></a></li>
+            </ul>
+
+            <div class="sidebar-footer">
+                <div class="server-status">
+                    <span class="status-dot online"></span>
+                    <span>Server Online</span>
+                </div>
+                <button id="logout-btn" class="btn btn-outline btn-sm">
+                    <i class="fa-solid fa-right-from-bracket"></i> Logout
+                </button>
+            </div>
+        </nav>
+
+        <!-- ── Main Content ────────────────────────────── -->
+        <main class="main-content">
+            <!-- Topbar -->
+            <header class="topbar">
+                <div style="display:flex;align-items:center;gap:12px">
+                    <button class="hamburger" id="hamburger-btn" onclick="ui.toggleSidebar()" title="Menu">
+                        <i class="fa-solid fa-bars"></i>
+                    </button>
+                    <div>
+                        <h1 id="current-page-title">Dashboard Overview</h1>
+                        <div class="last-update" id="last-update-label"></div>
+                    </div>
+                </div>
+                <div class="topbar-actions">
+                    <div class="time-display" id="clock">00:00:00</div>
+                    <button class="btn btn-icon" id="refresh-btn" title="Refresh">
+                        <i class="fa-solid fa-rotate-right"></i>
+                    </button>
+                </div>
+            </header>
+
+            <!-- ── Dashboard View ─────────────────────── -->
+            <section id="view-dashboard" class="view-section active">
+                <div class="metrics-grid">
+                    <div class="metric-card glass-panel">
+                        <div class="metric-icon"><i class="fa-solid fa-network-wired"></i></div>
+                        <div class="metric-info">
+                            <h3>Total Devices</h3>
+                            <div class="metric-value" id="metric-total-devices">—</div>
+                        </div>
+                    </div>
+                    <div class="metric-card glass-panel warning">
+                        <div class="metric-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                        <div class="metric-info">
+                            <h3>At Risk</h3>
+                            <div class="metric-value" id="metric-risk-devices">—</div>
+                        </div>
+                    </div>
+                    <div class="metric-card glass-panel success">
+                        <div class="metric-icon"><i class="fa-solid fa-shield-check"></i></div>
+                        <div class="metric-info">
+                            <h3>Protected</h3>
+                            <div class="metric-value" id="metric-safe-devices">—</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="dashboard-split">
+                    <div class="chart-container glass-panel">
+                        <h3>Risk Distribution</h3>
+                        <div class="chart-wrapper">
+                            <canvas id="riskChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="events-container glass-panel">
+                        <h3>Recent Security Events</h3>
+                        <div class="events-list" id="recent-events-list">
+                            <div class="loader">Loading events…</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ── Devices View ───────────────────────── -->
+            <section id="view-devices" class="view-section hidden">
+                <div class="panel glass-panel">
+                    <div class="panel-header">
+                        <h3>Registered Devices</h3>
+                        <div class="actions" style="gap:10px;flex-wrap:wrap">
+                            <!-- Status filter pills -->
+                            <div class="status-filter-pills">
+                                <button class="filter-pill active" data-filter="all" id="device-filter-all">
+                                    <i class="fa-solid fa-list"></i> All
+                                </button>
+                                <button class="filter-pill online-pill" data-filter="online" id="device-filter-online">
+                                    <span class="status-dot online" style="width:7px;height:7px;border-radius:50%;display:inline-block"></span> Online
+                                </button>
+                                <button class="filter-pill offline-pill" data-filter="offline" id="device-filter-offline">
+                                    <span class="status-dot offline" style="width:7px;height:7px;border-radius:50%;display:inline-block;background:var(--danger)"></span> Offline
+                                </button>
+                            </div>
+                            <div class="input-group" style="margin:0">
+                                <i class="fa-solid fa-magnifying-glass"></i>
+                                <input type="text" id="device-search" placeholder="Search IP or Name…" class="input-field" style="padding-left:36px;width:200px">
+                            </div>
+                            <button id="devices-refresh-btn" class="btn btn-primary" onclick="app.loadDevices()">
+                                <i class="fa-solid fa-rotate-right"></i> Refresh
+                            </button>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="data-table" id="devices-table">
+                            <thead>
+                                <tr>
+                                    <th>PC Name / ID</th>
+                                    <th>IP Address</th>
+                                    <th>Priority (1–10)</th>
+                                    <th>Status</th>
+                                    <th>Last Seen</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="devices-tbody">
+                                <!-- JS Populated -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ── Policies View ──────────────────────── -->
+            <section id="view-policies" class="view-section hidden">
+                <div class="panel glass-panel">
+                    <div class="panel-header">
+                        <div>
+                            <h3>Dynamic Priority Policies</h3>
+                            <p class="subtitle">AI &amp; threshold configurations based on device priority levels.</p>
+                        </div>
+                    </div>
+                    <div class="policies-grid" id="policies-container">
+                        <div class="loader">Loading policies…</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ── Lists (BL / WL) View ───────────────── -->
+            <section id="view-lists" class="view-section hidden">
+                <!-- Outer tabs: Blacklist / Whitelist -->
+                <div class="tabs">
+                    <button class="tab-btn active" data-tab="blacklist">
+                        <i class="fa-solid fa-ban"></i> Blacklist
+                    </button>
+                    <button class="tab-btn" data-tab="whitelist">
+                        <i class="fa-solid fa-circle-check"></i> Whitelist
+                    </button>
+                </div>
+
+                <!-- ── Blacklist Tab ──────────────────── -->
+                <div id="tab-blacklist" class="tab-content active glass-panel panel">
+                    <div class="panel-header">
+                        <div>
+                            <h3>Blacklisted Hashes</h3>
+                            <p class="subtitle">Rules are grouped by scope. Select a scope to browse entries.</p>
+                        </div>
+                        <button class="btn btn-danger" onclick="ui.showAddListModal('blacklist')">
+                            <i class="fa-solid fa-plus"></i> Add Entry
+                        </button>
+                    </div>
+
+                    <!-- Scope Tabs inside Blacklist -->
+                    <div class="scope-tabs">
+                        <button class="scope-tab-btn active" data-scope="global" data-list="blacklist">
+                            <i class="fa-solid fa-globe"></i> Global
+                            <span class="badge badge-danger" id="bl-global-count" style="margin-left:4px"></span>
+                        </button>
+                        <button class="scope-tab-btn" data-scope="priority" data-list="blacklist">
+                            <i class="fa-solid fa-layer-group"></i> By Priority
+                            <span class="badge badge-warning" id="bl-priority-count" style="margin-left:4px"></span>
+                        </button>
+                        <button class="scope-tab-btn" data-scope="device" data-list="blacklist">
+                            <i class="fa-solid fa-laptop"></i> By Device
+                            <span class="badge badge-success" id="bl-device-count" style="margin-left:4px"></span>
+                        </button>
+                    </div>
+
+                    <!-- Global scope -->
+                    <div class="scope-panel active" id="bl-scope-global">
+                        <div id="bl-global-table"></div>
+                    </div>
+                    <!-- Priority scope -->
+                    <div class="scope-panel" id="bl-scope-priority">
+                        <div class="priority-filter-row">
+                            <label>Priority Level:</label>
+                            <select id="bl-priority-select" onchange="ui.renderScopePanel('blacklist','priority')">
+                                <option value="">— Select —</option>
+                            </select>
+                        </div>
+                        <div id="bl-priority-table"></div>
+                    </div>
+                    <!-- Device scope -->
+                    <div class="scope-panel" id="bl-scope-device">
+                        <div class="device-filter-row">
+                            <select id="bl-device-select" onchange="ui.renderScopePanel('blacklist','device')">
+                                <option value="">— Select Device —</option>
+                            </select>
+                        </div>
+                        <div id="bl-device-table"></div>
+                    </div>
+                </div>
+
+                <!-- ── Whitelist Tab ──────────────────── -->
+                <div id="tab-whitelist" class="tab-content glass-panel panel">
+                    <div class="panel-header">
+                        <div>
+                            <h3>Whitelisted Hashes</h3>
+                            <p class="subtitle">Rules are grouped by scope. Select a scope to browse entries.</p>
+                        </div>
+                        <button class="btn btn-success" onclick="ui.showAddListModal('whitelist')">
+                            <i class="fa-solid fa-plus"></i> Add Entry
+                        </button>
+                    </div>
+
+                    <!-- Scope Tabs inside Whitelist -->
+                    <div class="scope-tabs">
+                        <button class="scope-tab-btn active" data-scope="global" data-list="whitelist">
+                            <i class="fa-solid fa-globe"></i> Global
+                            <span class="badge badge-success" id="wl-global-count" style="margin-left:4px"></span>
+                        </button>
+                        <button class="scope-tab-btn" data-scope="priority" data-list="whitelist">
+                            <i class="fa-solid fa-layer-group"></i> By Priority
+                            <span class="badge badge-warning" id="wl-priority-count" style="margin-left:4px"></span>
+                        </button>
+                        <button class="scope-tab-btn" data-scope="device" data-list="whitelist">
+                            <i class="fa-solid fa-laptop"></i> By Device
+                            <span class="badge badge-success" id="wl-device-count" style="margin-left:4px"></span>
+                        </button>
+                    </div>
+
+                    <!-- Global scope -->
+                    <div class="scope-panel active" id="wl-scope-global">
+                        <div id="wl-global-table"></div>
+                    </div>
+                    <!-- Priority scope -->
+                    <div class="scope-panel" id="wl-scope-priority">
+                        <div class="priority-filter-row">
+                            <label>Priority Level:</label>
+                            <select id="wl-priority-select" onchange="ui.renderScopePanel('whitelist','priority')">
+                                <option value="">— Select —</option>
+                            </select>
+                        </div>
+                        <div id="wl-priority-table"></div>
+                    </div>
+                    <!-- Device scope -->
+                    <div class="scope-panel" id="wl-scope-device">
+                        <div class="device-filter-row">
+                            <select id="wl-device-select" onchange="ui.renderScopePanel('whitelist','device')">
+                                <option value="">— Select Device —</option>
+                            </select>
+                        </div>
+                        <div id="wl-device-table"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ── Logs View ──────────────────────────────── -->
+            <section id="view-logs" class="view-section">
+                <div class="glass-panel" style="padding: 20px;">
+                    <div style="display:flex; gap:15px; flex-wrap:wrap; margin-bottom: 20px;">
+                        <div class="form-group" style="flex:1; min-width:200px;">
+                            <label>Start Date</label>
+                            <input type="datetime-local" id="filter-log-start">
+                        </div>
+                        <div class="form-group" style="flex:1; min-width:200px;">
+                            <label>End Date</label>
+                            <input type="datetime-local" id="filter-log-end">
+                        </div>
+                        <div class="form-group" style="flex:1; min-width:200px;">
+                            <label>Device ID</label>
+                            <input type="text" id="filter-log-device" placeholder="Enter device ID...">
+                        </div>
+                        <div class="form-group" style="flex:1; min-width:200px;">
+                            <label>Priority</label>
+                            <select id="filter-log-priority">
+                                <option value="">All Priorities</option>
+                                <option value="1">1 (Lowest)</option>
+                                <option value="5">5 (Normal)</option>
+                                <option value="10">10 (Critical)</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="display:flex; align-items:flex-end;">
+                            <button class="btn btn-primary" onclick="app.fetchLogs(true)" style="height:42px;">
+                                <i class="fa-solid fa-filter"></i> Filter
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Device</th>
+                                    <th>Category</th>
+                                    <th>Message</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="logs-table-body">
+                                <!-- Logs will be injected here -->
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div style="text-align: center; margin-top: 20px;">
+                        <button id="btn-load-more-logs" class="btn btn-outline" onclick="app.fetchLogs(false)" style="display: none;">
+                            <i class="fa-solid fa-angles-down"></i> Load More
+                        </button>
+                        <div id="logs-loading-indicator" class="loader" style="display: none; margin: 10px auto;">Loading logs…</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ── Server Config View ─────────────────── -->
+            <section id="view-config" class="view-section hidden">
+                <div class="panel glass-panel config-panel">
+                    <h3>Global Server Configuration</h3>
+                    <p>Changes apply immediately after saving.</p>
+                    <form id="server-config-form" class="grid-form">
+                        <div class="form-group">
+                            <label>Global Max Bandwidth (KBps)</label>
+                            <input type="number" id="cfg_global_bw" min="64" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Optimization Interval (sec)</label>
+                            <input type="number" id="cfg_opt_int" min="1" max="60" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Active Optimizer Algorithm</label>
+                            <select id="cfg_optimizer">
+                                <option value="genetic">Genetic Algorithm (AI)</option>
+                                <option value="proportional_fair">Proportional Fair</option>
+                                <option value="pso">Particle Swarm Optimization (PSO)</option>
+                                <option value="abc">Artificial Bee Colony (ABC)</option>
+                                <option value="simulated_annealing">Simulated Annealing</option>
+                                <option value="max_min_fair">Max-Min Fair</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Max Offline Queue Size</label>
+                            <input type="number" id="cfg_queue_size" min="10" max="10000" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Güvenlik Aksiyonları (Otomatik Karantina)</label>
+                            <select id="cfg_security_actions_enabled">
+                                <option value="true">Aktif (Canlı Savunma - ISOLATE / RESTRICT Gönderilir)</option>
+                                <option value="false">Pasif (Algoritma Test Modu - Komut Gönderilmez)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Enable AI Analysis</label>
+                            <select id="cfg_ai_enabled">
+                                <option value="true">Enabled</option>
+                                <option value="false">Disabled</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>AI API Key</label>
+                            <div class="api-key-wrapper">
+                                <input type="password" id="cfg_ai_key" placeholder="sk-…" autocomplete="off">
+                                <button type="button" class="api-key-toggle" onclick="ui.toggleApiKeyVisibility()" title="Show/hide key">
+                                    <i class="fa-regular fa-eye" id="api-key-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="form-actions full-width">
+                            <button type="submit" class="btn btn-primary" id="config-save-btn">
+                                <i class="fa-solid fa-floppy-disk"></i> Save Configuration
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- ═══════════════════ MODALS ═══════════════════════ -->
+
+    <!-- Device Details Modal -->
+    <div id="device-modal" class="modal-overlay">
+        <div class="modal-content glass-panel large-modal">
+            <div class="modal-header">
+                <h3 id="modal-device-title">Device Details</h3>
+                <button class="close-btn" onclick="ui.closeModal('device-modal')">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <!-- Live Cooldown Status Banner -->
+                <div class="cooldown-banner" id="cooldown-banner">
+                    <i class="fa-solid fa-circle-check cooldown-icon idle-clr" id="cooldown-icon"></i>
+                    <div class="cooldown-info">
+                        <div class="cooldown-action-label" id="cooldown-action-label" style="color:var(--text-muted)">Checking status…</div>
+                        <div class="cooldown-timer idle" id="cooldown-timer"></div>
+                        <div class="cooldown-sub" id="cooldown-sub"></div>
+                        <div class="cooldown-progress-wrap" id="cooldown-progress-wrap" style="display:none">
+                            <div class="cooldown-progress-bar" id="cooldown-progress-bar"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group" style="max-width:200px;margin-bottom:14px">
+                    <label>Duration (seconds, optional)</label>
+                    <input type="number" id="manual_duration" placeholder="e.g. 600">
+                </div>
+                <div class="device-actions-bar">
+                    <button class="btn btn-warning" onclick="app.sendManualAction('RESTRICT')">
+                        <i class="fa-solid fa-wifi"></i> Restrict
+                    </button>
+                    <button class="btn btn-danger" onclick="app.sendManualAction('ISOLATE')">
+                        <i class="fa-solid fa-circle-stop"></i> Isolate
+                    </button>
+                    <button class="btn btn-danger-outline" onclick="app.sendManualAction('LOCKDOWN')">
+                        <i class="fa-solid fa-lock"></i> Lockdown
+                    </button>
+                    <button class="btn btn-success" onclick="app.sendManualAction('RECOVER')">
+                        <i class="fa-solid fa-unlock"></i> Recover
+                    </button>
+                </div>
+
+                <div class="process-section">
+                    <div class="section-header">
+                        <h4>Live Processes</h4>
+                        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                            <div class="input-group" style="margin:0">
+                                <i class="fa-solid fa-magnifying-glass"></i>
+                                <input type="text" id="process-search"
+                                       placeholder="Search name or PID…"
+                                       class="input-field"
+                                       style="padding-left:34px;width:180px;font-size:0.85rem"
+                                       oninput="ui.filterProcessTable()">
+                            </div>
+                            <button class="btn btn-sm btn-primary" id="fetch-processes-btn" onclick="app.requestProcessList()">
+                                <i class="fa-solid fa-bolt"></i> Fetch
+                            </button>
+                        </div>
+                    </div>
+                    <div class="process-table-container">
+                        <table class="data-table" id="process-table">
+                            <thead>
+                                <tr>
+                                    <th>PID</th>
+                                    <th>Name</th>
+                                    <th>CPU %</th>
+                                    <th>RAM (MB)</th>
+                                    <th>SHA-256 Hash</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="process-table-body">
+                                <tr><td colspan="6" class="text-center text-muted">Click 'Fetch' to load live data via MQTT</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add / Edit List Item Modal -->
+    <div id="add-list-modal" class="modal-overlay">
+        <div class="modal-content glass-panel">
+            <div class="modal-header">
+                <h3 id="add-list-title">Add Entry</h3>
+                <button class="close-btn" onclick="ui.closeModal('add-list-modal')">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <form id="add-list-form" class="modal-body">
+                <input type="hidden" id="list_type">
+                <input type="hidden" id="list_id"> <!-- Used for Edit -->
+                <div class="form-group">
+                    <label>Process Name (optional)</label>
+                    <input type="text" id="list_name" placeholder="e.g. malicious.exe">
+                </div>
+                <div class="form-group">
+                    <label>SHA-256 Hash</label>
+                    <input type="text" id="list_hash" placeholder="64-character hash" minlength="64" maxlength="64" style="font-family:var(--font-mono);font-size:0.82rem">
+                </div>
+                <div class="form-group" id="group_risk_score" style="display:none">
+                    <label>Risk Penalty (blacklist only, 0–100)</label>
+                    <input type="number" id="list_risk" value="50" min="0" max="100">
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <input type="text" id="list_desc">
+                </div>
+                <div class="form-group" id="group_scope_container">
+                    <label>Scope</label>
+                    <select id="list_scope_type" onchange="ui.toggleScopeInputs()">
+                        <option value="global">Global (All Devices)</option>
+                        <option value="priority">Specific Priority Level(s)</option>
+                        <option value="device">Specific Device(s)</option>
+                    </select>
+                </div>
+                <div class="form-group" id="group_scope_priority" style="display:none">
+                    <label>Select Priorities</label>
+                    <div class="priority-badges-container" id="priority-badges">
+                        <span class="p-badge" data-val="1">1</span>
+                        <span class="p-badge" data-val="2">2</span>
+                        <span class="p-badge" data-val="3">3</span>
+                        <span class="p-badge" data-val="4">4</span>
+                        <span class="p-badge" data-val="5">5</span>
+                        <span class="p-badge" data-val="6">6</span>
+                        <span class="p-badge" data-val="7">7</span>
+                        <span class="p-badge" data-val="8">8</span>
+                        <span class="p-badge" data-val="9">9</span>
+                        <span class="p-badge" data-val="10">10</span>
+                    </div>
+                </div>
+                <div class="form-group" id="group_scope_device" style="display:none">
+                    <label>Device Names (comma-separated)</label>
+                    <input type="text" id="list_scope_device" placeholder="e.g. PC_1, PC_2">
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-outline" onclick="ui.closeModal('add-list-modal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="list_submit_btn">
+                        <i class="fa-solid fa-check"></i> Save
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Confirm Modal -->
+    <div id="confirm-modal" class="modal-overlay">
+        <div class="modal-content glass-panel confirm-modal-content">
+            <div class="modal-header">
+                <h3 id="confirm-title">Confirm Action</h3>
+                <button class="close-btn" onclick="ui.rejectConfirm()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <p id="confirm-message">Are you sure?</p>
+                <div class="confirm-actions">
+                    <button class="btn btn-outline" onclick="ui.rejectConfirm()">Cancel</button>
+                    <button class="btn btn-danger" id="confirm-ok-btn" onclick="ui.resolveConfirm()">
+                        <i class="fa-solid fa-check"></i> Confirm
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>

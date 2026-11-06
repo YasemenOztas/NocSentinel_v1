@@ -1,0 +1,13 @@
+.venv/
+.env
+certs/
+_avast_/
+__pycache__/
+*.pyc
+
+
+NocSentinel_Istemci/
+NocSentinel_Sunucu_EXE/
+*.docx
+~$*
+tests/

@@ -1,0 +1,87 @@
+=============================================================================
+             NOCSENTINEL PROJESİ - KURULUM VE ÇALIŞTIRMA KILAVUZU
+=============================================================================
+
+Bu kılavuz, NocSentinel sisteminin derlenmiş (.exe) versiyonlarının 
+sunucu ve istemci makinelere kurulumunu içerir. Sistemin çalışması için
+hiçbir makinede Python veya ekstra bir kütüphane yüklü olmasına GEREK YOKTUR.
+
+-----------------------------------------------------------------------------
+1. ORTAM DEĞİŞKENLERİNİ (.env) AYARLAMA
+-----------------------------------------------------------------------------
+Sistem iletişiminin güvenli sağlanması ve sunucuya bağlanılabilmesi için 
+`.env` dosyası hayati önem taşır. İki taraf için de dağıtılacak dosyalar şunlardır:
+
+A) SUNUCU (Server) .env Dosyası İhtiyaçları:
+Sunucu tarafında her ayar kalabilir. Önemli olanlar:
+- CRYPTO_SHARED_TOKEN (Şifreleme anahtarı, örn: TOGU2024)
+- MQTT_BROKER (Genellikle localhost)
+- MQTT_PORT (Standart 1883 veya TLS için 8883)
+- AI_API_KEY (Arayüzden de dinamik girilebilir, boş bırakılabilir)
+- REDIS_HOST (Genellikle localhost veya Docker kullanılıyorsa 'redis')
+- REDIS_PORT (Standart 6379)
+- REDIS_PASSWORD (Eğer Redis şifreliyse, örn: root)
+
+B) İSTEMCİ (Client) .env Dosyası İhtiyaçları:
+İstemcilerin AI veya veritabanı ile işi yoktur. Sadece şunlar gereklidir:
+- CRYPTO_SHARED_TOKEN (Sunucuyla BİREBİR AYNI olmalıdır!)
+- MQTT_BROKER (Sunucunun yerel ağdaki veya dış ağdaki GERÇEK IP adresi girilmelidir, örn: 192.168.1.50)
+- MQTT_PORT (1883 veya 8883)
+- NOC_ENV=production (İsteğe bağlı, TLS doğrulaması için)
+* Not: İstemciye göndereceğiniz .env dosyasından AI_API_KEY, REDIS_HOST vb. gereksiz satırları tamamen silebilirsiniz.
+
+-----------------------------------------------------------------------------
+2. SUNUCU (SERVER) KURULUMU VE ÇALIŞTIRILMASI
+-----------------------------------------------------------------------------
+Sunucu ana makinesinde çalışacak yapı iki ayaklıdır:
+A) Ağ trafiği ve kuyruklar için: Redis ve Mosquitto (Docker ile kurulacak)
+B) Python Sunucu Arka Planı: Derlenmiş EXE dosyası (Windows Servisi)
+
+ADIM 1: SUNUCU YAZILIMININ (EXE) WINDOWS SERVİSİ OLARAK KURULUMU
+Gerekli Klasör Yapısı (Sunucu Makinesine Kopyalanacaklar):
+NocSentinel_Sunucu_EXE/
+ ├── _internal/              (server/dist/NocSentinelServer/ içinden. BU KLASÖR OLMADAN EXE ÇALIŞMAZ!)
+ │    └── ui/                (Arayüz dosyalarının bulunduğu klasördür, güncellemeler buraya atılır)
+ ├── NocSentinelServer.exe   (server/dist/NocSentinelServer/ içinden)
+ ├── docker-compose.yml      (Ana dizinden)
+ ├── .env                    (Ana dizindeki .env dosyası)
+ ├── KURULUM_VE_CALISTIRMA.txt (Ana dizinden - Bu kılavuz)
+ └── deploy_server.bat       (server/ dizininden)
+
+Kurulum:
+1. Sunucu makinesine yukarıdaki klasör yapısını kopyalayın (Örn: Masaüstüne).
+2. "deploy_server.bat" dosyasına SAĞ TIKLAYIP "Yönetici Olarak Çalıştır" deyin.
+3. Siyah ekranda kurulum başarıyla tamamlandıktan sonra servis arka planda çalışmaya başlayacaktır.
+   (NOT: Bu adımda klasörünüzün içine "NocSentinelData" adında bir klasör otomatik oluşacaktır. Bu klasör sertifikaları ve ayarları içerir.)
+
+ADIM 2: DOCKER İLE ALTYAPI SERVİSLERİNİN KURULUMU (Redis & MQTT)
+ÖNEMLİ: Bu adımı KESİNLİKLE Adım 1'den (Sunucuyu kurduktan) SONRA yapmalısınız! Aksi takdirde Docker gerekli ayar dosyalarını bulamaz.
+
+1. Sunucu bilgisayarına "Docker Desktop" kurun ve çalıştırın.
+2. NocSentinel_Sunucu_EXE klasörünün içinde (docker-compose.yml'nin olduğu yerde) Komut Satırı (CMD) açın.
+3. Aşağıdaki komutu çalıştırın:
+   docker-compose up -d
+   (Bu komut Mosquitto ve Redis'i otomatik indirip başlatacaktır. Mosquitto, "NocSentinelData" içindeki ayarları kullanacaktır.)
+4. Tarayıcınızdan http://localhost:8000 adresine girerek Admin Arayüzüne ulaşabilirsiniz.
+
+-----------------------------------------------------------------------------
+3. İSTEMCİ (CLIENT) KURULUMU VE ÇALIŞTIRILMASI
+-----------------------------------------------------------------------------
+İstemci bilgisayarlara (ağda takip edilecek personel bilgisayarlarına) 
+sadece şu dosyaları içeren bir klasör kopyalamanız yeterlidir:
+
+Gerekli Klasör Yapısı (İstemci Makinelere Kopyalanacaklar):
+NocSentinel_Istemci/
+ ├── service_manager.exe        (client/dist/ içinden)
+ ├── .env                       (Sadece MQTT IP ve Crypto Token içeren)
+ ├── KURULUM_VE_CALISTIRMA.txt  (Ana dizinden - Bu kılavuz)
+ └── deploy_client.bat          (client/ dizininden)
+
+Kurulum Adımları:
+1. Hazırladığınız bu klasörü hedef bilgisayarda (örn: C:\NocSentinelClient) bir dizine koyun.
+2. "deploy_client.bat" dosyasına SAĞ TIKLAYIP "Yönetici Olarak Çalıştır" seçin.
+3. Siyah bir CMD ekranı açılacak, eğer o bilgisayarda eski bir servis varsa durdurup silecek, ardından yeni gönderdiğiniz servisi sisteme kaydedip başlatacaktır.
+4. Ekranda "Kurulum Başarıyla Tamamlandı" mesajını gördükten sonra pencereyi kapatabilirsiniz.
+
+Artık istemci cihaz arka planda tamamen görünmez olarak çalışır ve Windows her başladığında otomatik olarak sunucuya bağlanıp telemetri / olay loglarını iletmeye başlar. Herhangi bir ekstra pencere veya uygulama açık kalmaz.
+=============================================================================
